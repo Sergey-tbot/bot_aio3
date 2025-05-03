@@ -1,7 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message
 from boto3.dynamodb.conditions import Key, Attr
-from data.cfg import my_group
+from data.cfg import my_group, list_admin
 from data.config_bot import table_welcome, table_message
 from lexicon import bad_words_list, reminders
 from keyboards.keyboard import welcome_button
@@ -31,10 +31,8 @@ def filter_bad_words(text_message):
 
 
 @router.message(F.chat.id == my_group)
-async def group_admin(message: Message, admin_ids):
-    await message.answer('hello people')
-    print(message.chat.id)
-    if message.from_user.id not in admin_ids:  # Игнорирует админов
+async def group_admin(message: Message):
+    if message.from_user.id not in list_admin:  # Игнорирует админов
         text_message = filter_user_text(message.text)
         # Стирает сообщения меньше 5 слов
         if len(text_message) <= 5 or \
