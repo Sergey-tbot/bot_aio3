@@ -174,6 +174,7 @@ async def bl_add_save(call: types.CallbackQuery, bot: Bot):
                                      reply_markup=keyboard.bl_add_edit)
 
 # Режим изменения вносимых в Ч.С. данных
+@router.callback_query(F.data.startswitch('bl_edit_'))
 async def bl_add_edit(call: types.CallbackQuery):
     choise_text = ''
     if call.data == 'bl_edit_name':

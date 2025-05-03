@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from data.config_bot import Config, load_config
 from aiogram.client.default import DefaultBotProperties
-from handlers import private, group
+from handlers import private, group, private_admin
 
 
 async def main() -> None:
@@ -13,13 +13,11 @@ async def main() -> None:
     bot = Bot(token=config.tg_bot.token,
               default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
-    dp.workflow_data.update({'db': config.db, 'admin_ids' : config.tg_bot.admin_ids})
-
 
     dp.include_router(group.router)
+    dp.include_router(private_admin.router)
     dp.include_router(private.router)
 
     await dp.start_polling(bot)
-
 
 asyncio.run(main())
