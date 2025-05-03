@@ -25,7 +25,7 @@ async def del_from_bd(message: types.Message):
         KeyConditionExpression=Key('from_user').eq(from_user) & Key('date').eq(date)
     )
     answer = f"Код:\n" \
-             f"<{message.text}>\n" \
+             f"&lt{message.text}&gt\n" \
              f"Запись для удаления:\n\n" \
              f"Название/Ф.И.О.:\n" \
              f"{response['Items'][0]['body']['name']}\n\n" \
@@ -59,29 +59,23 @@ async def del_confirm(call: types.CallbackQuery):
         await call.message.edit_text('Окей. Не буду удалять.')
 
 
-@router.message(F.is_forwarded)
+@router.message(F.forward_origin)
 async def forwarded_message_to_ban(message: types.Message, bot: Bot):
     time_ban = dt.datetime.now() + dt.timedelta(days=30)  # Время бана.
     permissions = types.chat_permissions.ChatPermissions(can_send_messages=False)
     chat_id = cfg.my_group
     date_message = int(message.forward_date.strftime('%Y%m%d%H%M'))
-    comment_admin = table_admin_temp.query(
-        KeyConditionExpression=Key('id_user').eq(message.from_user.id)
-    )
-    comment = '<Комментария нет>'
-    if len(comment_admin['Items']) != 0:
-        if comment_admin['Items'][0]['body']['comment_date'] == str(message.date):
-            comment = comment_admin['Items'][0]['body']['comment_admin']
+    comment = '&lt;Комментария нет&gt;'
     try:
         id_user_to_ban = message.forward_from.id  # Если профиль открыт и можно получить ID
         response = table_message.query(
             KeyConditionExpression=Key('id_user').eq(id_user_to_ban),
             FilterExpression=Attr('date_message').eq(date_message)
         )
-        name_user = message["forward_from"]["first_name"]
-        if message["forward_from"]["last_name"] is not None:
-            name_user = name_user + ' ' + message["forward_from"]["last_name"]
-            print(name_user)
+        name_user = message.forward_from.first_name
+        if message.forward_from.last_name is not None:
+            name_user = name_user + ' ' + message.forward_from.last_name
+
     except:  # Если профиль закрыт и ID не передаётся
 
         response = table_message.scan(FilterExpression=Attr('date_message').eq(date_message))
@@ -171,13 +165,13 @@ async def ban_user(call: types.CallbackQuery, bot: Bot):
                                      reply_markup=keyboard.silens_choice)
 
 
-@router.message(F.is_reply)
+@router.message(F.reply_to_message)
 async def edit_comment(message: types.Message, bot: Bot):
     if message.reply_to_message.from_user.is_bot:
         markup = None
         if message.reply_to_message.text[-9:] == 'Изменить?':
             markup = keyboard.silens_choice
-        await bot.edit_message_text(message.reply_to_message.text,
+        await bot.edit_message_text(message.reply_to_message.html_text,
                                     chat_id=message.reply_to_message.chat.id,
                                     message_id=message.reply_to_message.message_id)
         parsing_message = message.reply_to_message.text.split('Комментарий админа:')

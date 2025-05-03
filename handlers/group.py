@@ -67,6 +67,7 @@ async def user_joined(message: Message, bot: Bot):
 # Обработчик сообщений для других групп
 @router.message()
 async def other_group(message: Message):
+    print(message.chat.id)
     await message.answer(f'Привет. Я предназначен для работы только в одной конкретной группе. Если хотите'
                          f' воспользоваться функционалом данного бота, свяжитесь с разработчиком: '
                          f'https://t.me/L_Sergey_Vladimirovich')
