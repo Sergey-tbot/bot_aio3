@@ -1,32 +1,31 @@
 from dataclasses import dataclass
 from data import cfg
+from boto3 import resource
 
 @dataclass
 class TgBot:
     token: str
     admin_ids: list[int]
 
-
-@dataclass
-class DatabaseConfig:
-    db_host: str
-    db_access: str
-    db_access_key: str
-
 @dataclass
 class Config:
     tg_bot: TgBot
-    db: DatabaseConfig
 
 
 def load_config(path: str | None = None) -> Config:
     return Config(
         tg_bot=TgBot(
-            token=cfg.BOT_TOKEN,
-            admin_ids=list(map(int, cfg.list_admin))),
-        db=DatabaseConfig(
-            db_host=cfg.USER_STORAGE_URL,
-            db_access=cfg.AWS_ACCESS_KEY_ID,
-            db_access_key=cfg.AWS_SECRET_ACCESS_KEY)
-        )
+            token=cfg.API_TOKEN,
+            admin_ids=list(map(int, cfg.list_admin))))
 
+ydb_doc_api_client = resource('dynamodb',
+                              endpoint_url=cfg.USER_STORAGE_URL,
+                              region_name='us-east-1',
+                              aws_access_key_id=cfg.AWS_ACCESS_KEY_ID,
+                              aws_secret_access_key=cfg.AWS_SECRET_ACCESS_KEY)
+table_message = ydb_doc_api_client.Table(cfg.base_message)
+table_welcome = ydb_doc_api_client.Table(cfg.base_last_welcome)
+table_temp = ydb_doc_api_client.Table(cfg.bl_temp)
+table_bl = ydb_doc_api_client.Table(cfg.base_black_list)
+table_banned_user = ydb_doc_api_client.Table(cfg.banned_user)
+table_admin_temp = ydb_doc_api_client.Table(cfg.admin_temp)
