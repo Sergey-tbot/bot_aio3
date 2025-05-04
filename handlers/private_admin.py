@@ -25,7 +25,7 @@ async def del_from_bd(message: types.Message):
         KeyConditionExpression=Key('from_user').eq(from_user) & Key('date').eq(date)
     )
     answer = f"Код:\n" \
-             f"&lt{message.text}&gt\n" \
+             f"&lt;{message.text}&gt;\n" \
              f"Запись для удаления:\n\n" \
              f"Название/Ф.И.О.:\n" \
              f"{response['Items'][0]['body']['name']}\n\n" \
@@ -39,7 +39,7 @@ async def del_from_bd(message: types.Message):
 
 
 # Проверка и подтверждение удаления из Ч.С.
-@router.callback_query(F.data.startswitch('dfbd_admin_'))
+@router.callback_query(F.data.startswith('dfbd_admin_'))
 async def del_confirm(call: types.CallbackQuery):
     await call.answer()
     if call.data == 'dfbd_admin_y':
@@ -109,7 +109,7 @@ async def forwarded_message_to_ban(message: types.Message, bot: Bot):
         print('Сообщение из основной группы не получилось удалить')
 
 
-@router.callback_query(F.data.startswitch('change_permission_'))
+@router.callback_query(F.data.startswith('change_permission_'))
 async def permission_change(call: types.CallbackQuery, bot: Bot):
     await call.answer()
     chat_id = cfg.my_group
@@ -145,7 +145,7 @@ async def permission_change(call: types.CallbackQuery, bot: Bot):
         await bot.restrict_chat_member(chat_id, id_user_to_ban, permissions, until_date=time_ban)
 
 
-@router.callback_query(F.data.startswitch('ban_user'))
+@router.callback_query(F.data.startswith('ban_user'))
 async def ban_user(call: types.CallbackQuery, bot: Bot):
     await call.answer()
     if call.data == 'ban_user_choice':

@@ -1,14 +1,18 @@
-from aiogram import Router, F, types, Bot
+
+from aiogram import Router, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery, InputFile, BufferedInputFile
 from data.config_bot import table_temp, table_bl
 from keyboards import keyboard
 from lexicon import reminders
 from data import cfg
 from boto3.dynamodb.conditions import Key, Attr
+from docx import Document
+from docx.shared import Pt
+from io import BytesIO
 import datetime as dt
 import re
-import io
+
 
 router = Router()
 router.message.filter(F.chat.type.in_({"private"}))
@@ -33,6 +37,11 @@ async def rules(message: Message):
                          f'Рады приветствовать Вас!')
 
 
+# @router.callback_query()
+# async def test(call: types.CallbackQuery):
+#     print(call.model_dump_json(indent=4, exclude_none=True))
+#     await call.answer()
+
 # ~~~~~~~~~~~~~~~Машина состояний~~~~~~~~~~~~~
 # Начало по команде "Добавить"
 @router.message(F.text == 'Добавить в черные списки')
@@ -43,7 +52,7 @@ async def bl_add_start(message: Message):
 
 # Отмена процедуры добавления
 @router.callback_query(F.data == 'cancel')
-async def bl_add_cancel(call: types.CallbackQuery):
+async def bl_add_cancel(call: CallbackQuery):
     try:
         table_temp.delete_item(
             Key={'id_user': call.from_user.id}
@@ -56,9 +65,9 @@ async def bl_add_cancel(call: types.CallbackQuery):
 
 
 # Выбор организации или сотрудника
-@router.callback_query(F.data.startswitch('bl_add_'))
-async def bl_add_choice(call: types.CallbackQuery):
-    await call.answer()
+@router.callback_query(F.data.startswith('bl_add_'))
+async def bl_add_choice(call: CallbackQuery):
+
     if call.data == 'bl_add_org':
         call_choice = 'организацию'
         bl_base = 'black_list_org'
@@ -78,6 +87,7 @@ async def bl_add_choice(call: types.CallbackQuery):
                 'done': False
             }
         })
+    await call.answer()
     await call.message.edit_text(f'ОК. \n\n'
                                  f'Добавляем в Ч.С. {call_choice}.\n'
                                  f'Нужно будет последовательно заполнить:\n\n'
@@ -140,8 +150,8 @@ def bl_add_comment(message):
     return
 
 # Проверка написанной записи и этап сохранения
-@router.callback_query(F.data.startswitch('bl_save_'))
-async def bl_add_save(call: types.CallbackQuery, bot: Bot):
+@router.callback_query(F.data.startswith('bl_save_'))
+async def bl_add_save(call: CallbackQuery):
     if call.data == 'bl_save_Save':
         response = table_temp.get_item(Key={'id_user': call.from_user.id})
         table_bl.put_item(
@@ -156,7 +166,7 @@ async def bl_add_save(call: types.CallbackQuery, bot: Bot):
                 }
             }
         )
-        await bot.send_message(call.from_user.id, f'З{call.message.text[7:-48]}\n\n'
+        await call.message.answer(text= f'З{call.message.text[7:-48]}\n\n'
                                                   f'✅ Успешно добавлена в Ч.С.',
                                reply_markup=choice_keyboard(call.from_user.id))
         try:
@@ -168,14 +178,14 @@ async def bl_add_save(call: types.CallbackQuery, bot: Bot):
             print("wtf?")
         await call.answer()
     else:
-        text = call.message.text[:-45]
+        text = call.message.text[:-47]
         await call.message.edit_text(f'{text}\n'
                                      f'✏️Что меняем?',
                                      reply_markup=keyboard.bl_add_edit)
 
 # Режим изменения вносимых в Ч.С. данных
-@router.callback_query(F.data.startswitch('bl_edit_'))
-async def bl_add_edit(call: types.CallbackQuery):
+@router.callback_query(F.data.startswith('bl_edit_'))
+async def bl_add_edit(call: CallbackQuery):
     choise_text = ''
     if call.data == 'bl_edit_name':
         table_temp.update_item(
@@ -223,8 +233,8 @@ async def bl_search(message: Message):
                          reply_markup=keyboard.bl_search)
 
 # Выбор базы для поиска в Ч.С.
-@router.callback_query(F.data.startswitch('black_list_'))
-async def bl_search_list(call: types.CallbackQuery):
+@router.callback_query(F.data.startswith('black_list_'))
+async def bl_search_list(call: CallbackQuery):
     if call.data == 'black_list_my':
         response = table_bl.query(
             KeyConditionExpression=Key('from_user').eq(call.from_user.id)
@@ -307,8 +317,8 @@ async def black_list_scan(message, base):
     return result_scan
 
 # Команда для удаления из Ч.С. пользователем
-@router.callback_query(F.data.startswitch('bl_delete_'))
-async def bl_delete_user(call: types.CallbackQuery):
+@router.callback_query(F.data.startswith('bl_delete_'))
+async def bl_delete_user(call: CallbackQuery):
     await call.answer()
     if call.data == 'bl_delete_user':
         data = call.message.text.split('Дата добавления:')[1]
@@ -325,7 +335,7 @@ async def bl_delete_user(call: types.CallbackQuery):
 
 # Формирование и отправка ТХТ файла с Ч.С.
 @router.callback_query(F.data == 'full_base')
-async def file_send(call: types.CallbackQuery):
+async def file_send(call: CallbackQuery):
     await call.answer()
     base_scan = table_temp.query(KeyConditionExpression=Key('id_user').eq(call.from_user.id))
     if len(base_scan) != 0:
@@ -338,42 +348,55 @@ async def file_send(call: types.CallbackQuery):
             chioce = 'организаций'
         elif scan == 'black_list_sotr':
             chioce = 'сотрудников'
-        result_scan = f'Черный список {chioce}:\n\n'
+
+        # Создаем DOCX документ
+        document = Document()
+        document.add_heading( f'Черный список {chioce}:\n\n')
         if call.from_user.id in cfg.list_admin:
-            result_scan = result_scan + f"Инструкция для Администраторов по удалению записей:\n" \
-                                        f"Для удаления записи нужно скопировать ""Код удаления записи"" " \
-                                        f"начинающийся с DFDB* " \
-                                        f"и отправить данный код Боту_администратору({cfg.url_bot}).\n"
+            document.add_paragraph(
+                "Инструкция для Администраторов по удалению записей:\n"
+                "Для удаления записи нужно скопировать 'Код удаления записи' "
+                "начинающийся с DFDB* "
+                f"и отправить данный код Боту_администратору ({cfg.url_bot})\n\n"
+            )
         for item in response_scan['Items']:
             key_del = ''
             if call.from_user.id in cfg.list_admin:
                 key_del = f'*****\n' \
                           f'Код удаления записи:\n' \
                           f'DFBD*{item["from_user"]}*{item["date"]}\n\n'
-            result_scan = result_scan + f"----------------------------------\n" \
-                                        f"{lang_name[item['body']['bl_base']]}:\n" \
-                                        f"{item['body']['name']}\n\n" \
-                                        f"Контакты (контактное лицо):\n" \
-                                        f"{item['body']['contact']}\n\n" \
-                                        f"Комментарий (причина добавления):\n" \
-                                        f"{item['body']['comment']}\n\n" \
-                                        f"Дата добавления:\n" \
-                                        f"{str(dt.datetime.strptime(item['date'], '%Y%m%d%H%M'))}\n{key_del}\n"
+            # Добавляем раздел для каждой записи
+            document.add_heading('----------------------------------', level=1)
+            document.add_paragraph(f"{lang_name[item['body']['bl_base']]}:")
+            document.add_paragraph(f"{item['body']['name']}")
+
+            document.add_paragraph("Контакты (контактное лицо):")
+            document.add_paragraph(f"{item['body']['contact']}")
+
+            document.add_paragraph("Комментарий (причина добавления):")
+            document.add_paragraph(f"{item['body']['comment']}")
+
+            document.add_paragraph("Дата добавления:")
+            document.add_paragraph(
+                f"{str(dt.datetime.strptime(item['date'], '%Y%m%d%H%M'))}"
+            )
+            document.add_paragraph(key_del)
+        # Сохраняем документ в байтовый поток
+        file = BytesIO()
+        file.name = f'full_base_{chioce}.docx'
+        document.save(file)
+        file.seek(0)
 
         await call.message.edit_text(f'Черный список {chioce}:')
-        file = io.StringIO()
-        file.name = 'full_base_' + chioce + '.txt'
-        file.write(result_scan)
+        document_file = BufferedInputFile(file.getvalue(), filename=file.name)
+        await call.message.answer_document(document=document_file)
 
-        with file:
-            file.seek(0)
-            await call.message.answer_document(file)
         try:
             table_temp.delete_item(
                 Key={'id_user': call.from_user.id}
             )
         except:
-            print("wtf?")
+            print("Ошибка при удалении")
     else:
         await call.message.edit_text('Что-то пошло не так.\nПопробуйте начать сначала.')
 
@@ -433,3 +456,4 @@ def choice_keyboard(id_user):
     else:
         keyboard_answer = keyboard.keyboard_private
     return keyboard_answer
+# print(call.model_dump_json(indent=4, exclude_none=True))
