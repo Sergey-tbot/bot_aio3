@@ -1,18 +1,18 @@
 
+import datetime as dt
+import re
+from io import BytesIO
+
 from aiogram import Router, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, CallbackQuery, InputFile, BufferedInputFile
+from aiogram.types import Message, CallbackQuery, BufferedInputFile
+from boto3.dynamodb.conditions import Key, Attr
+from docx import Document
+
+from data import cfg
 from data.config_bot import table_temp, table_bl
 from keyboards import keyboard
 from lexicon import reminders
-from data import cfg
-from boto3.dynamodb.conditions import Key, Attr
-from docx import Document
-from docx.shared import Pt
-from io import BytesIO
-import datetime as dt
-import re
-
 
 router = Router()
 router.message.filter(F.chat.type.in_({"private"}))
@@ -338,20 +338,19 @@ async def bl_delete_user(call: CallbackQuery):
 async def file_send(call: CallbackQuery):
     await call.answer()
     base_scan = table_temp.query(KeyConditionExpression=Key('id_user').eq(call.from_user.id))
-    if len(base_scan) != 0:
+    if base_scan:
         scan = base_scan['Items'][0]['body']['search_list']
         response_scan = table_bl.scan(
             FilterExpression=Attr('body.bl_base').eq(scan)
         )
-        chioce = ''
+        choice = ''
         if scan == 'black_list_org':
-            chioce = 'организаций'
+            choice = 'организаций'
         elif scan == 'black_list_sotr':
-            chioce = 'сотрудников'
+            choice = 'сотрудников'
 
-        # Создаем DOCX документ
         document = Document()
-        document.add_heading( f'Черный список {chioce}:\n\n')
+        document.add_heading(f'Черный список {choice}:\n\n')
         if call.from_user.id in cfg.list_admin:
             document.add_paragraph(
                 "Инструкция для Администраторов по удалению записей:\n"
@@ -381,13 +380,14 @@ async def file_send(call: CallbackQuery):
                 f"{str(dt.datetime.strptime(item['date'], '%Y%m%d%H%M'))}"
             )
             document.add_paragraph(key_del)
-        # Сохраняем документ в байтовый поток
+
+
         file = BytesIO()
-        file.name = f'full_base_{chioce}.docx'
+        file.name = f'full_base_{choice}.docx'
         document.save(file)
         file.seek(0)
 
-        await call.message.edit_text(f'Черный список {chioce}:')
+        await call.message.edit_text(f'Черный список {choice}:')
         document_file = BufferedInputFile(file.getvalue(), filename=file.name)
         await call.message.answer_document(document=document_file)
 

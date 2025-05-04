@@ -12,12 +12,6 @@ class Config:
     tg_bot: TgBot
 
 
-def load_config(path: str | None = None) -> Config:
-    return Config(
-        tg_bot=TgBot(
-            token=cfg.API_TOKEN,
-            admin_ids=list(map(int, cfg.list_admin))))
-
 ydb_doc_api_client = resource('dynamodb',
                               endpoint_url=cfg.USER_STORAGE_URL,
                               region_name='us-east-1',

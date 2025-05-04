@@ -1,10 +1,11 @@
-from aiogram import types, Router, F, Bot
-from data import cfg
-from data.config_bot import table_bl, table_admin_temp, table_message, table_banned_user
-from keyboards import keyboard
-from boto3.dynamodb.conditions import Key, Attr
 import datetime as dt
 
+from aiogram import types, Router, F, Bot
+from boto3.dynamodb.conditions import Key, Attr
+
+from data import cfg
+from data.config_bot import table_bl, table_message, table_banned_user
+from keyboards import keyboard
 
 router = Router()
 router.message.filter(F.chat.type.in_({"private"}), F.from_user.id.in_(cfg.list_admin))
