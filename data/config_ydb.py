@@ -1,15 +1,5 @@
-from dataclasses import dataclass
 from data import cfg
 from boto3 import resource
-
-@dataclass
-class TgBot:
-    token: str
-    admin_ids: list[int]
-
-@dataclass
-class Config:
-    tg_bot: TgBot
 
 
 ydb_doc_api_client = resource('dynamodb',

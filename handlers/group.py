@@ -2,7 +2,7 @@ from aiogram import Router, F, Bot
 from aiogram.types import Message
 from boto3.dynamodb.conditions import Key, Attr
 from data.cfg import my_group, list_admin
-from data.config_bot import table_welcome, table_message
+from data.config_ydb import table_welcome, table_message
 from lexicon import bad_words_list, reminders
 from keyboards.keyboard import welcome_button
 from aiogram.exceptions import TelegramAPIError

@@ -1,4 +1,3 @@
-
 import datetime as dt
 import re
 from io import BytesIO
@@ -10,7 +9,7 @@ from boto3.dynamodb.conditions import Key, Attr
 from docx import Document
 
 from data import cfg
-from data.config_bot import table_temp, table_bl
+from data.config_ydb import table_temp, table_bl, table_banned_user
 from keyboards import keyboard
 from lexicon import reminders
 
@@ -36,11 +35,6 @@ async def rules(message: Message):
     await message.answer(f'{rules_msg}\n\n{reminders.reminders_full[0]}\n\n'
                          f'Рады приветствовать Вас!')
 
-
-# @router.callback_query()
-# async def test(call: types.CallbackQuery):
-#     print(call.model_dump_json(indent=4, exclude_none=True))
-#     await call.answer()
 
 # ~~~~~~~~~~~~~~~Машина состояний~~~~~~~~~~~~~
 # Начало по команде "Добавить"
@@ -400,6 +394,28 @@ async def file_send(call: CallbackQuery):
     else:
         await call.message.edit_text('Что-то пошло не так.\nПопробуйте начать сначала.')
 
+
+@router.message(F.text == 'Узнать причину бана')
+async def baned_user(message: Message):
+    response = table_banned_user.query(
+        KeyConditionExpression=Key('id_user').eq(message.from_user.id)
+    )
+    if len(response['Items']) != 0:
+
+        body = response['Items'][0]['body']
+
+        await message.answer(f'Сообщение отправленное '
+                             f'{body["date"][:-6]} UTC:\n'
+                             f'{body["message_text"]}\n\n'
+                             f'Комментарий:\n'
+                             f'{body["comment"]}\n\n'
+                             f'*Перечитайте правила группы.\n'
+                             f'**Если не видите причины бана в правилах, перечитайте еще раз.\n'
+                             f'Если не нашли подходящего, напишите админам, попробуем разобраться (но это не точно).')
+    else:
+        await message.answer('Я не знаю. Возможно вы попали в бан еще до создания этого мира.')
+
+
 # Функционал в ЛС
 @router.message()
 async def private_dialog(message: Message):
@@ -456,4 +472,3 @@ def choice_keyboard(id_user):
     else:
         keyboard_answer = keyboard.keyboard_private
     return keyboard_answer
-# print(call.model_dump_json(indent=4, exclude_none=True))

@@ -4,7 +4,7 @@ from aiogram import types, Router, F, Bot
 from boto3.dynamodb.conditions import Key, Attr
 
 from data import cfg
-from data.config_bot import table_bl, table_message, table_banned_user
+from data.config_ydb import table_bl, table_message, table_banned_user
 from keyboards import keyboard
 
 router = Router()
