@@ -1,4 +1,5 @@
 import datetime as dt
+import html
 
 from aiogram import types, Router, F, Bot
 from boto3.dynamodb.conditions import Key, Attr
@@ -14,6 +15,7 @@ router.message.filter(F.chat.type.in_({"private"}), F.from_user.id.in_(cfg.list_
 async def admin_dialog(message: types.Message):
     await message.reply('Возможно тут будет более полезный функционал.',
                         reply_markup=keyboard.keyboard_private_admin)
+
 
 
 # Удаление Админом из Ч.С. по Коду DFBD*
@@ -36,7 +38,7 @@ async def del_from_bd(message: types.Message):
              f"{response['Items'][0]['body']['comment']}\n\n" \
              f"Дата добавления:\n" \
              f"{str(dt.datetime.strptime(response['Items'][0]['date'], '%Y%m%d%H%M'))}\n\n"
-    await message.answer(answer, reply_markup=keyboard.dfbd_admin)
+    await message.answer(html.escape(answer), reply_markup=keyboard.dfbd_admin)
 
 
 # Проверка и подтверждение удаления из Ч.С.
@@ -83,14 +85,14 @@ async def forwarded_message_to_ban(message: types.Message, bot: Bot):
         id_user_to_ban = response['Items'][0]['id_user']
         name_user = message.forward_sender_name
     id_message = int(response['Items'][0]['message_text']['id_message'])
-    await message.answer(f'Выдан кляп на 30 дней:\n\n'
+    await message.answer(html.escape(f'Выдан кляп на 30 дней:\n\n'
                          f'Участник:\n{name_user}\n'
                          f'Сообщение:\n{message.text}\n\n'
                          f'------------------\n'
                          f'Комментарий админа:\n{comment}\n\n'
                          f'*Для изменеия/добавления комментария отправь сообщение ОТВЕТОМ на это сообщение*\n'
                          f'ID участника: {id_user_to_ban}\n\n'
-                         f'Изменить?',
+                         f'Изменить?'),
                          reply_markup=keyboard.silens_choice
                          )
     table_banned_user.put_item(
@@ -107,6 +109,7 @@ async def forwarded_message_to_ban(message: types.Message, bot: Bot):
     try:  # Попытка удаления сообщения пользователя
         await bot.delete_message(chat_id, id_message)
     except:
+        await message.answer('OOps. Что-то пошло не так. Не могу удалить сообщение')
         print('Сообщение из основной группы не получилось удалить')
 
 
@@ -121,7 +124,7 @@ async def permission_change(call: types.CallbackQuery, bot: Bot):
     if call.data == 'change_permission_7':
         time_ban = time_ban + dt.timedelta(days=7)
         await call.message.edit_text(f'Кляп изменен и выдан на 7 дней.\n\n'
-                                     f'{call.message.text[24:-11]}')
+                                     f'{html.escape(call.message.text[24:-11])}')
     elif call.data == 'change_permission_+30' or call.data == 'change_permission_-30':
         new_days_ban = int(call.message.text.split('Выдан кляп на ')[1].split(' дней:')[0]) + int(call.data[-3:])
         if new_days_ban > 30:
@@ -129,19 +132,19 @@ async def permission_change(call: types.CallbackQuery, bot: Bot):
         else:
             markup = keyboard.change_up30_only
         await call.message.edit_text(f'Выдан кляп на {new_days_ban} дней:'
-                                     f'{call.message.text.split("дней:")[1][:-11]}\n\n'
+                                     f'{html.escape(call.message.text.split("дней:")[1][:-11])}\n\n'
                                      f'Подтверди',
                                      reply_markup=markup)
         finish = False
     elif call.data == 'change_permission_save':
         days_ban = int(call.message.text.split('Выдан кляп на ')[1].split(' дней:')[0])
         time_ban = time_ban + dt.timedelta(days=days_ban)
-        await call.message.edit_text(f'{call.message.text[:-11]}\n\n'
+        await call.message.edit_text(f'{html.escape(call.message.text[:-11])}\n\n'
                                      f'Готово')
     elif call.data == 'change_permission_forever':
         time_ban = None
         await call.message.edit_text(f'Выдан кляп навсегда:\n\n'
-                                     f'{call.message.text[24:-11]}')
+                                     f'{html.escape(call.message.text[24:-11])}')
     if finish:
         await bot.restrict_chat_member(chat_id, id_user_to_ban, permissions, until_date=time_ban)
 
@@ -151,17 +154,17 @@ async def ban_user(call: types.CallbackQuery, bot: Bot):
     await call.answer()
     if call.data == 'ban_user_choice':
         await call.message.edit_text(f'Выдать бан навсегда:\n\n'
-                                     f'{call.message.text[24:-11]}\n\n'
+                                     f'{html.escape(call.message.text[24:-11])}\n\n'
                                      f'Уверен в выборе?',
                                      reply_markup=keyboard.ban_user_confirm)
     elif call.data == 'ban_user_yes':
         chat_id = cfg.my_group
         id_user_to_ban = int(call.message.text.split('ID участника: ')[1].split('\n\n')[0])
         await bot.ban_chat_member(chat_id, id_user_to_ban)
-        await call.message.edit_text(f'Выдан{call.message.text[6:-16]}')
+        await call.message.edit_text(f'Выдан{html.escape(call.message.text[6:-16])}')
     elif call.data == 'ban_user_no':
         await call.message.edit_text(f'Выдан кляп на 30 дней:\n\n'
-                                     f'{call.message.text[22:-16]}'
+                                     f'{html.escape(call.message.text[22:-16])}'
                                      f'Изменить?',
                                      reply_markup=keyboard.silens_choice)
 
@@ -190,4 +193,4 @@ async def edit_comment(message: types.Message, bot: Bot):
             },
             ReturnValues="UPDATED_NEW"
         )
-        await message.answer(new_answer, reply_markup=markup)
+        await message.answer(html.escape(new_answer), reply_markup=markup)

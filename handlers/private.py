@@ -1,5 +1,6 @@
 import datetime as dt
 import re
+import html
 from io import BytesIO
 
 from aiogram import Router, F
@@ -160,7 +161,8 @@ async def bl_add_save(call: CallbackQuery):
                 }
             }
         )
-        await call.message.answer(text= f'З{call.message.text[7:-48]}\n\n'
+
+        await call.message.answer(text= f'З{html.escape(call.message.text[7:-48])}\n\n'
                                                   f'✅ Успешно добавлена в Ч.С.',
                                reply_markup=choice_keyboard(call.from_user.id))
         try:
@@ -236,7 +238,7 @@ async def bl_search_list(call: CallbackQuery):
         if len(response['Items']) != 0:
             await call.message.edit_text(f'Твои записи:')
             for msg in response['Items']:
-                await call.message.answer(f"----------------------------------\n"
+                await call.message.answer(html.escape(f"----------------------------------\n"
                                           f"{lang_name[msg['body']['bl_base']]}:\n"
                                           f"{msg['body']['name']}\n\n"
                                           f"Контакты (контактное лицо):\n"
@@ -244,14 +246,14 @@ async def bl_search_list(call: CallbackQuery):
                                           f"Комментарий (причина добавления):\n"
                                           f"{msg['body']['comment']}\n\n"
                                           f"Дата добавления:\n"
-                                          f"{str(dt.datetime.strptime(msg['date'], '%Y%m%d%H%M'))}\n\n",
+                                          f"{str(dt.datetime.strptime(msg['date'], '%Y%m%d%H%M'))}\n\n"),
                                           reply_markup=keyboard.bl_delete)
 
         else:
             await call.message.edit_text(f'Записей не найдено.')
     else:
         await call.answer()
-        chioce = ''
+        choice = ''
         table_temp.put_item(
             Item={
                 'id_user': call.from_user.id,
@@ -261,10 +263,10 @@ async def bl_search_list(call: CallbackQuery):
                 }
             })
         if call.data == 'black_list_org':
-            chioce = 'организаций'
+            choice = 'организаций'
         elif call.data == 'black_list_sotr':
-            chioce = 'сотрудников'
-        await call.message.edit_text(f'Выполняется поиск по базе {chioce}.\n\n '
+            choice = 'сотрудников'
+        await call.message.edit_text(f'Выполняется поиск по базе {choice}.\n\n '
                                      f'Отправь кого ищем или нажми "⛔️Отмена"',
                                      reply_markup=keyboard.bl_full_base)
 
@@ -292,13 +294,13 @@ async def black_list_scan(message, base):
                                f"{item['body']['comment']}\n\n" \
                                f"Дата добавления:\n" \
                                f"{str(dt.datetime.strptime(item['date'], '%Y%m%d%H%M'))}\n\n{key_del}"
-            await message.answer(result_scan_item, reply_markup=markup)
+            await message.answer(html.escape(result_scan_item), reply_markup=markup)
 
     if result_scan != 0:
-        await message.answer(f'По запросу "{message.text}" найдено записей: {result_scan}',
+        await message.answer(f'По запросу "{html.escape(message.text)}" найдено записей: {result_scan}',
                              reply_markup=choice_keyboard(message.from_user.id))
     else:
-        await message.answer(f'По запросу "{message.text}" ничего не найдено.',
+        await message.answer(f'По запросу "{html.escape(message.text)}" ничего не найдено.',
                              reply_markup=choice_keyboard(message.from_user.id))
 
     try:
@@ -325,7 +327,7 @@ async def bl_delete_user(call: CallbackQuery):
         except:
             await call.message.edit_text('Что-то пошло не так.')
     elif call.data == 'bl_delete_admin' and call.from_user.id in cfg.list_admin:
-        await call.message.edit_text(call.message.text, reply_markup=keyboard.dfbd_admin)
+        await call.message.edit_text(html.escape(call.message.text), reply_markup=keyboard.dfbd_admin)
 
 # Формирование и отправка ТХТ файла с Ч.С.
 @router.callback_query(F.data == 'full_base')
@@ -404,14 +406,14 @@ async def baned_user(message: Message):
 
         body = response['Items'][0]['body']
 
-        await message.answer(f'Сообщение отправленное '
+        await message.answer(html.escape(f'Сообщение отправленное '
                              f'{body["date"][:-6]} UTC:\n'
                              f'{body["message_text"]}\n\n'
                              f'Комментарий:\n'
                              f'{body["comment"]}\n\n'
                              f'*Перечитайте правила группы.\n'
                              f'**Если не видите причины бана в правилах, перечитайте еще раз.\n'
-                             f'Если не нашли подходящего, напишите админам, попробуем разобраться (но это не точно).')
+                             f'Если не нашли подходящего, напишите админам, попробуем разобраться (но это не точно).'))
     else:
         await message.answer('Я не знаю. Возможно вы попали в бан еще до создания этого мира.')
 
@@ -451,14 +453,14 @@ async def private_dialog(message: Message):
             elif state == 'bl_comment':
                 bl_add_comment(message)
                 comment = message.text
-            await message.answer(f'Новая запись:\n\n'
+            await message.answer(html.escape(f'Новая запись:\n\n'
                                  f"{lang_name[response['Items'][0]['body']['bl_base']]}:\n"
                                  f">> {name}\n"
                                  f"Контакты (контактное лицо):\n"
                                  f">> {contact}\n"
                                  f"Комментарий (причина добавления):\n"
                                  f">> {comment}\n\n"
-                                 f"{step_message}", reply_markup=step_button)
+                                 f"{step_message}"), reply_markup=step_button)
     else:
         await message.answer(f'Привет. Я тебя не понял. Нажми на кнопку ниже.',
                              reply_markup=choice_keyboard(message.from_user.id))

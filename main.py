@@ -1,3 +1,5 @@
+import asyncio
+
 from bot import dp, bot
 from handlers import group, private, private_admin
 from aiogram.types import Update
@@ -26,3 +28,9 @@ async def handler(event, context):
         'statusCode': 200,
         'body': 'ok',
     }
+
+
+async def main() -> None:
+    await dp.start_polling(bot)
+
+asyncio.run(main())

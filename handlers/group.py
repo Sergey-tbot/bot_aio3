@@ -9,6 +9,7 @@ from aiogram.exceptions import TelegramAPIError
 import re
 import random
 
+
 from datetime import datetime, timedelta
 
 router= Router()
@@ -29,21 +30,6 @@ def filter_bad_words(text_message):
             return True
 
 
-
-@router.message(F.chat.id == my_group)
-async def group_admin(message: Message):
-    if message.from_user.id not in list_admin:  # Игнорирует админов
-        text_message = filter_user_text(message.text)
-        # Стирает сообщения меньше 5 слов
-        if len(text_message) <= 5 or \
-                db_message(message.from_user.id, message.message_id, message.text, message.date.strftime('%Y%m%d%H%M')):
-            try:
-                await message.delete()
-            except TelegramAPIError:
-                print('Сообщение не удалено')
-        elif filter_bad_words(text_message):  # Фильтр мата
-            await message.reply('Выражайтесь культурнее, пожалуйста!')
-
 @router.message(F.new_chat_members)
 async def user_joined(message: Message, bot: Bot):
     try:
@@ -62,6 +48,21 @@ async def user_joined(message: Message, bot: Bot):
         await bot.delete_message(message.chat.id, id_last_message(answer.message_id))
     except TelegramAPIError:
         print('Message delete NO BOT')
+
+
+@router.message(F.chat.id == my_group)
+async def group_admin(message: Message):
+    if message.from_user.id not in list_admin:  # Игнорирует админов
+        text_message = filter_user_text(message.text)
+        # Стирает сообщения меньше 5 слов
+        if len(text_message) <= 5 or \
+                db_message(message.from_user.id, message.message_id, message.text, message.date.strftime('%Y%m%d%H%M')):
+            try:
+                await message.delete()
+            except TelegramAPIError:
+                print('Сообщение не удалено')
+        elif filter_bad_words(text_message):  # Фильтр мата
+            await message.reply('Выражайтесь культурнее, пожалуйста!')
 
 
 # Обработчик сообщений для других групп
